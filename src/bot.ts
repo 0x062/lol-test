@@ -1,23 +1,29 @@
-import { xion } from "./client";
-import { holesky } from "./client";
-import type { TransferAssetsParameters } from "@unionlabs/client";
+// src/bot.ts
 import * as dotenv from "dotenv";
 dotenv.config();
 
+import { getClients } from "./client";
+import type { TransferAssetsParameters } from "@unionlabs/client";
+
 async function autoTransferUSDC(amount: number) {
-  // 1. Ambil semua aset yang didukung Xion Testnet, cari USDC
+  const { xion } = await getClients();
+
+  // 1. Ambil asset USDC dari Xion (union-testnet-9)
   const assets = await xion.getSupportedAssets();
   const usdc = assets.find(a => a.symbol === "USDC");
   if (!usdc) throw new Error("USDC tidak ditemukan di Xion Testnet");
 
   // 2. Siapkan payload transfer 0.01 USDC
+  const decimals = usdc.decimals; // biasanya 6
+  const rawAmount = BigInt(Math.floor(amount * 10 ** decimals));
+
   const payload = {
-    amount: BigInt(Math.floor(amount * 10**usdc.decimals)),  // 0.01 → 1_000_000 (as decimals biasanya 6)
+    amount: rawAmount,
     denomAddress: usdc.denomAddress,
-    destinationChainId: "17000",              // Holesky Testnet
+    destinationChainId: "17000",           // Holesky Testnet
     receiver: process.env.RECEIVER!,
     autoApprove: true,
-  } satisfies TransferAssetsParameters<"xion-testnet-2">;
+  } satisfies TransferAssetsParameters<"union-testnet-9">;
 
   // 3. Kirim transaksi
   const res = await xion.transferAsset(payload);
